@@ -162,6 +162,3 @@ call_talend_launcher_mytest.cmd
 python/*
 logs/test/
 work/
-
-
-
