@@ -2,7 +2,9 @@
 
 ## Installation de python et ses dépendances
 
->  Exécuter le fichier "Python_Full_Install.bat" en tant qu'administrateur
+> Exécuter le fichier "Python_Full_Install.bat" en tant qu'administrateur
+>
+> Pré-requis : Avoir accès au site https://pypi.org/ pour le téléchargement des librairies sur le serveur d'applications
 
 ## Exécution du lanceur de task Talend par un ordonnanceur
 
