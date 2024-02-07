@@ -10,10 +10,11 @@ echo PythonPath = %PythonPath%
 mkdir %PythonPath%
 :: Installation de l interpreteur Python
 echo Debut Installation Python interpreteur
-%InstallPath%\python-3.11.7-amd64.exe quiet InstallAllUsers=1 PrependPath=1 Include_test=0 TargetDir=%PythonPath%
+::ren %InstallPath%\python-3.11.7-amd64.exe.txt python-3.11.7-amd64.exe
+%InstallPath%\python-3.11.7-amd64.exe /quiet InstallAllUsers=1 PrependPath=1 Include_test=0 TargetDir=%PythonPath%\
 echo Fin Installation Python interpreteur
 
-cd /d %PythonPath%
 :: Installation des Packages en pré-requis
-python.exe pip install -r %InstallPath%\requirements.txt
+%PythonPath%\python.exe -m pip install --upgrade pip
+%PythonPath%\python.exe -m pip install -r %InstallPath%\requirements.txt
 pause
