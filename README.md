@@ -17,3 +17,13 @@
 * Modifier les variables d'environnements
 * Renseigner le numéro de la Task Talend
 * Exécuter le fichier "call_talend_launcher_test.bat" en tant qu'administrateur
+
+
+
+### Documentation de Référence sur l'API Talend
+
+* https://api.talend.com/apis/
+* https://api.talend.com/apis/orchestration/2021-03/#operation_get-task-by-id
+* https://api.talend.com/apis/processing/2021-03/#operation_execute-task
+* https://api.talend.com/apis/processing/2021-03/#operation_get-task-execution-status
+* https://api.talend.com/apis/execution-logs/2021-03/#operation_get-task-execution-logs
