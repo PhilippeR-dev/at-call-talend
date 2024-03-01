@@ -1,8 +1,9 @@
 import os, sys
-import time, datetime
+import time, datetime, timedelta
 import requests
 import json
 import logging
+import base64
 
 B_TRACE_LOG=False
 WAIT_TIME_TO_SCAN_STATUS = 10 # seconds // for tests
@@ -22,10 +23,60 @@ def print_if_trace(message, trace=False):
     """
     if trace:
         print(message)
+        
+def generate_access_token(client_id, client_secret, last_token_generated=None):
+    # Vérifier si la date et l'heure de la dernière génération de token ont été fournies
+    if last_token_generated is not None:
+        # Calculer la différence de temps entre maintenant et la dernière génération de token
+        time_difference = datetime.datetime.now() - last_token_generated
 
+        # Si la différence de temps est inférieure à 25 minutes, renvoyer le token existant
+        if time_difference < timedelta.Timedelta(minutes=25):
+            mynow=datetime.datetime.now().isoformat()
+            message='Talend Compte de Service - Génération du Service Access Token - Utilisation du token existant'
+            print_if_trace(f"{mynow} - {message}",B_TRACE_LOG)
+            return None
+
+    # Endpoint de l'API Talend pour la génération de token
+    token_endpoint = f"{TALEND_API_URL}/security/oauth/token"
+
+    # Encodage en Base64 du client_id et client_secret
+    encoded_credentials = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
+
+    # En-têtes de la demande pour la génération de token
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Basic {encoded_credentials}'
+    }
+
+    # Données de demande pour la génération de token
+    payload = {
+        'audience': f"{TALEND_API_URL}",
+        'grant_type': 'client_credentials'
+    }
+
+    try:
+        # Effectuer une requête POST pour obtenir un nouveau token
+        response = requests.post(token_endpoint, headers=headers, json=payload)
+        response.raise_for_status()  # Vérifier si la requête a réussi
+
+        # Extraire le token d'accès du corps de la réponse JSON
+        access_token = response.json()['access_token']
+
+        # Renvoyer le token d'accès généré
+        return access_token
+
+    except requests.exceptions.RequestException as error:
+        mynow=datetime.datetime.now().isoformat()
+        message='Talend Compte de Service - Erreur lors de la génération du Service Access Token :'+error
+        logging.error(message)
+        print_if_trace(f"{mynow} - {message}",B_TRACE_LOG)
+        return None
+        
 def _get_task_info() -> str:
 
-    urlGetInfo = f"{TALEND_API_URL}/executables/tasks/{TALEND_TASK_ID}"  # TALEND_API_URL = https://api.eu.cloud.talend.com/tmc/v2.6
+    urlGetInfo = f"{TALEND_API_URL}/orchestration/executables/tasks/{TALEND_TASK_ID}"  # TALEND_API_URL = https://api.eu.cloud.talend.com
+
     headers = {
         'Accept': 'application/json',
         'Authorization': f"Bearer {TALEND_API_KEY}",
@@ -44,7 +95,7 @@ def _get_task_info() -> str:
 
 def _trigger_task(task_name) -> str:
 
-    urlRUN = f"{TALEND_API_URL}/executions"  # TALEND_API_URL = https://api.eu.cloud.talend.com/tmc/v2.6
+    urlRUN = f"{TALEND_API_URL}/processing/executions"  # TALEND_API_URL = https://api.eu.cloud.talend.com
     headers = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -72,7 +123,7 @@ def _trigger_task(task_name) -> str:
 
 def _get_task_logs(task_name, execution_id) -> str:
 
-    urlLOGS = f"{TALEND_API_URL}/executions/{execution_id}/logs"  # TALEND_API_URL = https://api.eu.cloud.talend.com/tmc/v2.6
+    urlLOGS = f"{TALEND_API_URL}/monitoring/executions/{execution_id}/logs"  # TALEND_API_URL = https://api.eu.cloud.talend.com/tmc/v2.6
     headers = {
         'Accept': 'application/json',
         'Authorization': f"Bearer {TALEND_API_KEY}",
@@ -125,6 +176,20 @@ def _get_task_logs(task_name, execution_id) -> str:
 
 def run():
     
+    global TALEND_API_KEY
+    global LAST_SAT_GENERATED
+    LAST_SAT_GENERATED = None  
+    sat = generate_access_token(TALEND_CLIENT_ID,TALEND_CLIENT_PWD,LAST_SAT_GENERATED)
+    if sat:
+        TALEND_API_KEY = sat
+        LAST_SAT_GENERATED = datetime.datetime.now()
+        mynow=datetime.datetime.now().isoformat()
+        message='Talend Compte de Service - Nouveau token généré  ' #+sat
+        logging.error(message)
+        print_if_trace(f"{mynow} - {message}",B_TRACE_LOG)
+    
+    #print(' TALEND_API_KEY =  ', TALEND_API_KEY)
+    
     task_name = _get_task_info()
     
     task_execution_id = _trigger_task(task_name)
@@ -134,7 +199,7 @@ def run():
     mynow=datetime.datetime.now().isoformat()
     print_if_trace(f"{mynow} - {message}",B_TRACE_LOG)
     
-    urlGS = f"{TALEND_API_URL}/executions/{task_execution_id}"
+    urlGS = f"{TALEND_API_URL}/processing/executions/{task_execution_id}"
 
     timeout = time.time() + DELTA_TIMEOUT  
     waitingtime = WAIT_TIME_TO_SCAN_STATUS
@@ -142,6 +207,15 @@ def run():
 
     while True:
         time.sleep(waitingtime)
+        
+        sat = generate_access_token(TALEND_CLIENT_ID,TALEND_CLIENT_PWD,LAST_SAT_GENERATED)
+        if sat:
+            TALEND_API_KEY = sat
+            LAST_SAT_GENERATED = datetime.datetime.now()
+            mynow=datetime.datetime.now().isoformat()
+            message='Talend Compte de Service - Nouveau token généré : '+sat
+            logging.error(message)
+            print_if_trace(f"{mynow} - {message}",B_TRACE_LOG)
         
         response = requests.request("GET", urlGS, headers={ 'Authorization': f"Bearer {TALEND_API_KEY}" }, data={})
         
@@ -193,7 +267,16 @@ def run():
             logging.error(message)
             mynow=datetime.datetime.now().isoformat()
             raise Exception(f"{mynow} - {message}")
-        
+    
+    sat = generate_access_token(TALEND_CLIENT_ID,TALEND_CLIENT_PWD,LAST_SAT_GENERATED)
+    if sat:
+        TALEND_API_KEY = sat
+        LAST_SAT_GENERATED = datetime.datetime.now()
+        mynow=datetime.datetime.now().isoformat()
+        message='Talend Compte de Service - Nouveau token généré : '+sat
+        logging.error(message)
+        print_if_trace(f"{mynow} - {message}",B_TRACE_LOG)
+            
     code = _get_task_logs(task_name,task_execution_id)
     return code
         
@@ -204,14 +287,17 @@ if __name__ == '__main__':
     formatted_datetime = current_datetime.strftime('%Y-%m-%d-%H-%M-%S') 
     print_if_trace(f"{mynow} - START TALEND LAUNCHER",B_TRACE_LOG)
     TALEND_API_URL = sys.argv[1]
-    TALEND_API_KEY = sys.argv[2]
-    TALEND_TASK_ID = sys.argv[3]
-    LOGS_FOLDER = sys.argv[4]
-    B_TRACE_LOG = (sys.argv[5].lower() == "true")
+    #TALEND_API_KEY = sys.argv[2]
+    TALEND_CLIENT_ID = sys.argv[2]
+    TALEND_CLIENT_PWD = sys.argv[3]
+    TALEND_TASK_ID = sys.argv[4]
+    LOGS_FOLDER = sys.argv[5]
+    B_TRACE_LOG = (sys.argv[6].lower() == "true")
     #LOGS_FILE_NAME = 'talend_task_'+str(TALEND_TASK_ID)+'_'+str(formatted_datetime)+'.log'
     LOGS_FILE_NAME = 'talend_task_'+str(TALEND_TASK_ID)+'.log'
     print_if_trace(str(mynow)+' - parameter > TALEND_API_URL : '+TALEND_API_URL,B_TRACE_LOG)
     #print_if_trace(str(mynow)+' - parameter > TALEND_API_KEY : '+TALEND_API_KEY,B_TRACE_LOG)
+    print_if_trace(str(mynow)+' - parameter > TALEND_CLIENT_ID : '+TALEND_CLIENT_ID,B_TRACE_LOG)
     print_if_trace(str(mynow)+' - parameter > TALEND_TASK_ID : '+TALEND_TASK_ID,B_TRACE_LOG)
     print_if_trace(str(mynow)+' - parameter > LOGS_FOLDER : '+LOGS_FOLDER,B_TRACE_LOG)
     print_if_trace(str(mynow)+' - parameter > LOGS_FILE_NAME : '+LOGS_FILE_NAME,B_TRACE_LOG)
