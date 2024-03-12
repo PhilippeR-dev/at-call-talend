@@ -10,6 +10,7 @@ WAIT_TIME_TO_SCAN_STATUS = 10 # seconds // for tests
 WAIT_TIME_TO_FETCH_LOGS = 15 # seconds // for tests
 PRINT_STATUS_TIME = 30 # seconds // for tests
 DELTA_TIMEOUT = 3600 # 3600 seconds or 1 hour // for tests
+ERROR_CODE = 99
 
 
 def print_if_trace(message, trace=False):
@@ -70,8 +71,9 @@ def generate_access_token(client_id, client_secret, last_token_generated=None):
         mynow=datetime.datetime.now().isoformat()
         message='Talend Compte de Service - Erreur lors de la génération du Service Access Token :'+error
         logging.error(message)
-        print_if_trace(f"{mynow} - {message}",B_TRACE_LOG)
-        return None
+        # print_if_trace(f"{mynow} - {message}",B_TRACE_LOG)
+        print(f"{mynow} - {message}",B_TRACE_LOG)
+        return 'ERROR!'
         
 def _get_task_info() -> str:
 
@@ -88,7 +90,9 @@ def _get_task_info() -> str:
         message='Talend Task > Get Info < is failed !!! - status_code: '+str(statusGI_code)
         logging.error(message)
         mynow=datetime.datetime.now().isoformat()
-        raise Exception(f"{mynow} - {message}")
+        print(f"!!! ERROR !!! - {mynow} - {message}")
+        return "ERROR!"
+        #raise Exception(f"{mynow} - {message}")
     else:
         data = json.loads(response.content)
         return data['name']
@@ -114,7 +118,9 @@ def _trigger_task(task_name) -> str:
         message=f"Talend Task id : {TALEND_TASK_ID} - {task_name} > POST RUN < is failed !!! - status_code: "+str(statusRUN_code)
         logging.error(message)
         mynow=datetime.datetime.now().isoformat()
-        raise Exception(f"{mynow} - {message}")
+        print(f"!!! ERROR !!! - {mynow} - {message}")
+        return 'ERROR!'
+        # raise Exception(f"{mynow} - {message}")
     else:
         data = json.loads(response.content)
         execution_id=data['executionId']
@@ -136,7 +142,7 @@ def _get_task_logs(task_name, execution_id) -> str:
     }
     time.sleep(WAIT_TIME_TO_FETCH_LOGS)
     url = urlLOGS
-    trueReturnCode=0
+    trueReturnCode=ERROR_CODE
     while url:
         response = requests.get(url, params=params, headers=headers)
         statusGL_code=response.status_code
@@ -144,7 +150,9 @@ def _get_task_logs(task_name, execution_id) -> str:
             message=f"Talend Task id : {TALEND_TASK_ID} - {task_name} + -> execution : {execution_id} > GET TALEND LOGS < is failed !!! :( - status_code: "+str(statusGL_code)
             logging.error(message)
             mynow=datetime.datetime.now().isoformat()
-            raise Exception(f"{mynow} - {message}")
+            print(f"!!! ERROR !!! - {mynow} - {message}")
+            return 'ERROR!'
+            # raise Exception(f"{mynow} - {message}")
         else:
             data = response.json()
             message=f"Talend Task id : {TALEND_TASK_ID} - {task_name} -> execution : {execution_id} > GET TALEND LOGS < is completed successfully :) - status_code: "+str(statusGL_code)+" - page n°"+str(params['startIndex'])
@@ -171,16 +179,21 @@ def _get_task_logs(task_name, execution_id) -> str:
                 params['startIndex'] = next_index
             else:
                 url = None  # No more pages to fetch
-    
-    return trueReturnCode
+    if trueReturnCode == ERROR_CODE:
+        return 'ERROR!'
+    else:
+        return trueReturnCode
 
 def run():
     
     global TALEND_API_KEY
     global LAST_SAT_GENERATED
-    LAST_SAT_GENERATED = None  
-    sat = generate_access_token(TALEND_CLIENT_ID,TALEND_CLIENT_PWD,LAST_SAT_GENERATED)
+    LAST_SAT_GENERATED = None
+    rcode=ERROR_CODE # code erreur  
+    sat = generate_access_token(TALEND_CLIENT_ID,TALEND_CLIENT_PWD,LAST_SAT_GENERATED)   
     if sat:
+        if sat == 'ERROR!':
+            return rcode
         TALEND_API_KEY = sat
         LAST_SAT_GENERATED = datetime.datetime.now()
         mynow=datetime.datetime.now().isoformat()
@@ -191,8 +204,12 @@ def run():
     #print(' TALEND_API_KEY =  ', TALEND_API_KEY)
     
     task_name = _get_task_info()
+    if task_name == 'ERROR!':
+        return rcode
     
     task_execution_id = _trigger_task(task_name)
+    if task_execution_id == 'ERROR!':
+        return rcode
     
     message=f"Talend Task id : {TALEND_TASK_ID} - {task_name} > RUN < -> execution : {task_execution_id} is started "
     logging.info(message)
@@ -210,6 +227,8 @@ def run():
         
         sat = generate_access_token(TALEND_CLIENT_ID,TALEND_CLIENT_PWD,LAST_SAT_GENERATED)
         if sat:
+            if sat == 'ERROR!':
+                return rcode
             TALEND_API_KEY = sat
             LAST_SAT_GENERATED = datetime.datetime.now()
             mynow=datetime.datetime.now().isoformat()
@@ -227,7 +246,9 @@ def run():
             message=f"Talend Task id : {TALEND_TASK_ID} - {task_name} > RUN < -> execution : {task_execution_id} is failed (GS<>200) !!! - status_code: "+str(statusGS_code)+' - exec_status : '+exec_status+' - execution_status : '+execution_status
             logging.error(message)
             mynow=datetime.datetime.now().isoformat()
-            raise Exception(f"{mynow} - {message}")
+            print(f"!!! ERROR !!! - {mynow} - {message}")
+            return rcode
+            # raise Exception(f"{mynow} - {message}")
         #
         # LOV executionStatus : 
         #       EXECUTION_EVENT_RECEIVED, DISPATCHING_FLOW, 
@@ -247,14 +268,16 @@ def run():
             message=f"Talend Task id : {TALEND_TASK_ID} - {task_name} > RUN < -> execution : {task_execution_id} is completed successfully :) - status_code: "+str(statusGS_code)+' - exec_status : '+exec_status+' - execution_status : '+execution_status
             logging.info(message)
             mynow=datetime.datetime.now().isoformat()
-            print_if_trace(f"{mynow} - {message}",B_TRACE_LOG)           
+            print_if_trace(f"{mynow} - {message}",B_TRACE_LOG)       
             break
         elif time.time() > timeout:
             message=f"Talend Task id : {TALEND_TASK_ID} - {task_name} > RUN < -> execution : {task_execution_id} is running but timeout !!! :( - exec_status : "+exec_status+' - execution_status : '+execution_status
             logging.error(message)
             mynow=datetime.datetime.now().isoformat()
-            print_if_trace(f"{mynow} - {message}",B_TRACE_LOG) 
-            break
+            print_if_trace(f"{mynow} - {message}",B_TRACE_LOG)
+            print(f"!!! ERROR !!! - {mynow} - {message}")
+            return rcode 
+            #break
         elif exec_status == 'executing' or exec_status == 'dispatching':
             if time.time() > timeprint:
                 message=f"Talend Task id : {TALEND_TASK_ID} - {task_name} > RUN < -> execution : {task_execution_id} is running - status_code: "+str(statusGS_code)+' - exec_status : '+exec_status+' - execution_status : '+execution_status
@@ -266,10 +289,14 @@ def run():
             message=f"Talend Task id : {TALEND_TASK_ID} - {task_name} > RUN < -> execution : {task_execution_id} is failed (GS other) !!! - status_code: "+str(statusGS_code)+' - exec_status : '+exec_status+' - execution_status : '+execution_status
             logging.error(message)
             mynow=datetime.datetime.now().isoformat()
-            raise Exception(f"{mynow} - {message}")
+            print(f"!!! ERROR !!! - {mynow} - {message}")
+            return rcode 
+            #raise Exception(f"{mynow} - {message}")
     
     sat = generate_access_token(TALEND_CLIENT_ID,TALEND_CLIENT_PWD,LAST_SAT_GENERATED)
     if sat:
+        if sat == 'ERROR!':
+            return rcode
         TALEND_API_KEY = sat
         LAST_SAT_GENERATED = datetime.datetime.now()
         mynow=datetime.datetime.now().isoformat()
@@ -278,7 +305,10 @@ def run():
         print_if_trace(f"{mynow} - {message}",B_TRACE_LOG)
             
     code = _get_task_logs(task_name,task_execution_id)
-    return code
+    if code == 'ERROR!':
+        return rcode
+    else:
+        return code
         
 if __name__ == '__main__':
     
