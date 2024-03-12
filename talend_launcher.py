@@ -184,8 +184,8 @@ def run():
         TALEND_API_KEY = sat
         LAST_SAT_GENERATED = datetime.datetime.now()
         mynow=datetime.datetime.now().isoformat()
-        message='Talend Compte de Service - Nouveau token généré  ' #+sat
-        logging.error(message)
+        message='Talend Compte de Service - Nouveau token genere  ' #+sat
+        logging.info(message)
         print_if_trace(f"{mynow} - {message}",B_TRACE_LOG)
     
     #print(' TALEND_API_KEY =  ', TALEND_API_KEY)
