@@ -1,5 +1,9 @@
 # Lanceur de batchs Talend
 
+## Installation de GitHub Desktop pour Windows Server
+
+>  Afin d'installer simplement le repository [https://github.com/PhilippeR-dev/at-call-talend](), on conseille d'installer le desktop GitHub permettant de cloner le repository à partir d'internet dans un répertoire sur votre disque. (évite des problèmes d'encodage des fichiers)
+
 ## Installation de python et ses dépendances
 
 > Exécuter le fichier "Python_Full_Install.bat" en tant qu'administrateur

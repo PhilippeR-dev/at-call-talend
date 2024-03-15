@@ -69,7 +69,7 @@ def generate_access_token(client_id, client_secret, last_token_generated=None):
 
     except requests.exceptions.RequestException as error:
         mynow=datetime.datetime.now().isoformat()
-        message='Talend Compte de Service - Erreur lors de la génération du Service Access Token :'+error
+        message='Talend Compte de Service - Erreur lors de la génération du Service Access Token :'+str(error)
         logging.error(message)
         # print_if_trace(f"{mynow} - {message}",B_TRACE_LOG)
         print(f"{mynow} - {message}",B_TRACE_LOG)

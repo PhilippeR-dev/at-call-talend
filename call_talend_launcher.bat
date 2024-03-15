@@ -5,7 +5,7 @@ set PythonPath=%cd%\python\
 :: echo PythonPath = %PythonPath%
 set pathTalendLauncher=%cd%
 :: echo pathTalendLauncher=%pathTalendLauncher%
-set talendApiUrl=https://api.eu.cloud.talend.com/tmc/v2.6
+set talendApiUrl=https://api.eu.cloud.talend.com
 set talendCliendID="pvKbM26xj4zDocIwwJ-XCZB6QLJVj2rPSy8KB5C_-aA"
 set talendCliendPWD="?? mot de pase du Service Account"
 :: Task Id for the job
